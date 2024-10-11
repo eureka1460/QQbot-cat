@@ -1,2 +1,2 @@
-OPENAI_API_KEY = "sk-It1Puc91CzTUhNK4LfiQFzOdDY0VZmk1JwiJ2Oe29_T3BlbkFJbUlkfDpB2xy_N7wc7E8ShBlK5uS6xnpXLmqgxaOlkA"
+OPENAI_API_KEY = "sk-svcacct-Ot6fn7Zzlk3zXnsRyUBRwqT1dsN9jniTcYZx7SO8iaCDksFkP9bgET8lGt-p-7rT3BlbkFJo_YXFtx33NB6y1mvilyEokQYaC8li8pBxXvRJ_pC5Giux1wz1ORxOcXRMIbufTgA"
 GEMINI_API_KEY = "AIzaSyDBpXt2H3ik5oBkgUcbyeUOmsUj1GAnxx0"
