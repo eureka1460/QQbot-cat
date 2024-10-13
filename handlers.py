@@ -67,7 +67,7 @@ async def call_chatgpt_api(chat_history):
                 return "抱歉，我暂时无法处理你的请求。"  # 返回给用户的默认错误消息
 
 #启用群的列表
-test_group = [861734063, 782892938, 1039888658] #第二团体861734063 *782892938 西工大·赣1039888658
+test_group = [861734063, 782892938, 1039888658, 860944779] #第二团体861734063 *782892938 西工大·赣1039888658 cs群( computer science 860944779
 async def execute_function(ws, message):
     if message['post_type'] == 'meta_event':
         return
