@@ -1,4 +1,24 @@
-OPENAI_API_KEY = "sk-svcacct-Ot6fn7Zzlk3zXnsRyUBRwqT1dsN9jniTcYZx7SO8iaCDksFkP9bgET8lGt-p-7rT3BlbkFJo_YXFtx33NB6y1mvilyEokQYaC8li8pBxXvRJ_pC5Giux1wz1ORxOcXRMIbufTgA"
-GEMINI_API_KEY = "AIzaSyDBpXt2H3ik5oBkgUcbyeUOmsUj1GAnxx0"
-GROQ_API_KEY = "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"
-PRODIA_API_KEY = "7737ef7f-ab60-41e2-a874-52ca2045fa0f"
+import json
+import os
+
+# Load configuration from config.json
+config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+
+if os.path.exists(config_path):
+    with open(config_path, 'r', encoding='utf-8') as f:
+        config_data = json.load(f)
+else:
+    # Fallback or error if config.json is missing
+    # You might want to copy config.example.json to config.json here if needed
+    raise FileNotFoundError("config.json not found. Please create it from config.example.json")
+
+OPENAI_API_KEY = config_data["api_keys"]["openai"]
+GEMINI_API_KEY = config_data["api_keys"]["gemini"]
+GROQ_API_KEY = config_data["api_keys"]["groq"]
+PRODIA_API_KEY = config_data["api_keys"]["prodia"]
+
+SUPER_USERS = config_data["bot_settings"]["super_users"]
+TEST_GROUPS = config_data["bot_settings"]["test_groups"]
+HOST = config_data["bot_settings"]["host"]
+PORT = config_data["bot_settings"]["port"]
+PROXY_URL = config_data["bot_settings"]["proxy_url"]
