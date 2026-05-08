@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "katex": "^0.16.45",
+    "markdown-it": "^14.1.1",
+    "markdown-it-texmath": "^1.0.0",
+    "puppeteer": "^24.43.0"
+  }
+}

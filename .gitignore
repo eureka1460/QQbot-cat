@@ -36,3 +36,6 @@ memory_db/
 
 # JetBrains
 .idea/
+
+# Node.js dependencies
+node_modules/

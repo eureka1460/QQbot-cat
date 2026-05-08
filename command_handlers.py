@@ -5,7 +5,7 @@ import subprocess
 from enum import Enum
 from typing import Optional
 
-from plugins import P5_card, YGO_find_card, drawing, jm2pdf, markdown, typst_renderer
+from plugins import P5_card, YGO_find_card, drawing, markdown, typst_renderer
 from tool_router import Tool, ToolRouter, ToolScope
 
 _RESTART_SCRIPT = os.path.join(

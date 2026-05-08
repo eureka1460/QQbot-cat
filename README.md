@@ -40,7 +40,7 @@ Bot/.venv/Scripts/activate       # Windows
 pip install -r Bot/requirements.txt
 
 # Node 依赖（Markdown 渲染）
-npm install
+npm install markdown-it markdown-it-texmath katex puppeteer
 ```
 
 > 首次运行时 sentence-transformers 会自动下载向量模型（约 90 MB），之后离线可用。  
@@ -111,7 +111,7 @@ npm install
 
 ```bat
 run.bat
-```
+```（目前无此选项）
 
 脚本会自动：
 - 检测 NapCat 是否运行，未运行则自动以快速登录方式启动
