@@ -4,11 +4,15 @@ import glob
 import re
 import asyncio
 from PIL import Image
+from config import PROXY_URL
 
 # 创建 jmcomic 配置
 def _create_option():
-    """创建 jmcomic 配置对象"""
+    """创建 jmcomic 配置对象，注入代理设置"""
     option = jmcomic.create_option_by_file("plugins/option.yml")
+    # 注入代理配置（从 config.json 读取），解决中国大陆无法直连 JM 服务器的问题
+    if PROXY_URL:
+        option.client.postman.meta_data.proxies = PROXY_URL
     return option
 
 
