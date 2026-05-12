@@ -20,10 +20,11 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or api_keys.get("gemini", "")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY") or api_keys.get("groq", "")
 PRODIA_API_KEY = os.environ.get("PRODIA_API_KEY") or api_keys.get("prodia", "")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY") or api_keys.get("openrouter", "")
+QWEN_API_KEY = os.environ.get("QWEN_API_KEY") or api_keys.get("qwen", "")
 
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY") or api_keys.get("deepseek", "")
 DEEPSEEK_BASE_URL = model_settings.get("deepseek_base_url", "https://api.deepseek.com")
-DEEPSEEK_MODEL = model_settings.get("deepseek_model", "deepseek-v4-flash")
+DEEPSEEK_MODEL = model_settings.get("deepseek_model", "deepseek-v4-pro")
 DEEPSEEK_TEMPERATURE = float(model_settings.get("deepseek_temperature", 0.75))
 
 SUPER_USERS = config_data["bot_settings"]["super_users"]

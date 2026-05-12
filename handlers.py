@@ -5,7 +5,8 @@ from config import TEST_GROUPS, MEMORY_ENABLED, MEMORY_DB_PATH, MEMORY_SEARCH_RE
 from framework import BotContext, EventRouter, MessageEvent
 from persona_engine import PersonaEngine
 from plugins import analyze_video
-from plugins.vision import describe_image, fetch_image
+from plugins.vision import fetch_image
+from plugins.gemini import image_to_text
 from session_manager import SessionManager
 
 
@@ -29,7 +30,7 @@ async def handle_image_message(image_urls, message_content):
             if not image_data:
                 descriptions.append("图片加载失败")
                 continue
-            desc = await describe_image(image_data, url)
+            desc = await image_to_text(image_data)
             descriptions.append(desc)
         except Exception as exc:
             print(f"[Vision] Error processing image: {exc}")

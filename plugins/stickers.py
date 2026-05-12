@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import random
+from functools import lru_cache
 from typing import Dict, List, Optional
 
 _BOT_DIR     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,8 +18,15 @@ def _load_manifest() -> Dict[str, str]:
         return json.load(f)
 
 
+@lru_cache(maxsize=1)
 def _scan() -> Dict[str, List[str]]:
-    """Return {emotion: [filepath, …]} by stripping trailing digits from filenames."""
+    """Return {emotion: [filepath, …]} by stripping trailing digits from filenames.
+
+    Cached with lru_cache(maxsize=1) so the sticker directory is only
+    scanned once per process lifetime, eliminating repeated I/O on every
+    sticker send.  Clear the cache (``_scan.cache_clear()``) if stickers
+    are added at runtime.
+    """
     result: Dict[str, List[str]] = {}
     if not os.path.isdir(_STICKER_DIR):
         return result
@@ -30,6 +38,13 @@ def _scan() -> Dict[str, List[str]]:
         emotion = name.rstrip('0123456789') or name
         result.setdefault(emotion, []).append(os.path.join(_STICKER_DIR, fname))
     return result
+
+
+@lru_cache(maxsize=256)
+def _b64_cache(filepath: str) -> str:
+    """Cache base64-encoded sticker image data."""
+    with open(filepath, 'rb') as f:
+        return base64.b64encode(f.read()).decode('utf-8')
 
 
 def get_available_stickers() -> Dict[str, str]:
@@ -44,8 +59,7 @@ def sticker_to_segment(name: str) -> Optional[dict]:
     if not pool:
         return None
     path = random.choice(pool)
-    with open(path, 'rb') as f:
-        data = base64.b64encode(f.read()).decode('utf-8')
+    data = _b64_cache(path)
     return {"type": "image", "data": {"file": f"base64://{data}"}}
 
 

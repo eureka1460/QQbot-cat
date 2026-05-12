@@ -83,8 +83,11 @@ def _scrape_cards(card_name: str) -> list:
             WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, ".t_row"))
             )
-        except Exception:
-            pass
+        except Exception as e:
+            # Distinguish timeout/loading failures from "no cards found"
+            page_source_preview = driver.page_source[:500] if driver.page_source else "(empty)"
+            print(f"[YGO] WebDriverWait timed out or failed while searching for '{card_name}': {e}")
+            print(f"[YGO] Page source preview: {page_source_preview}")
 
         card_entries = []
         
@@ -96,7 +99,8 @@ def _scrape_cards(card_name: str) -> list:
                     
                 try:
                     effect = card.find_element(By.CLASS_NAME, "box_card_text").text.strip()
-                except:
+                except Exception as e:
+                    print(f"[YGO] Failed to extract card effect: {e}")
                     effect = ""
                     
                 types = []
@@ -119,7 +123,8 @@ def _scrape_cards(card_name: str) -> list:
                     "name": name, "effect": effect,
                     "types": types, "image_url": image_url,
                 })
-            except Exception:
+            except Exception as e:
+                print(f"[YGO] Failed to parse card entry: {e}")
                 continue
 
         if not card_entries:
@@ -137,7 +142,7 @@ def _scrape_cards(card_name: str) -> list:
             if entry.get("image_url"):
                 try:
                     # Download image directly to bypass NapCat timeout/blocking issues
-                    with httpx.Client(verify=False, timeout=10.0, proxies=PROXY_URL) as client:
+                    with httpx.Client(timeout=10.0, proxies=PROXY_URL) as client:
                         resp = client.get(entry["image_url"], headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
                         if resp.status_code == 200:
                             b64_data = base64.b64encode(resp.content).decode("utf-8")

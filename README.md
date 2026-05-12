@@ -1,6 +1,6 @@
 # QQBot
 
-基于 [NapCatQQ](https://github.com/NapNeko/NapCatQQ) + Python 的 QQ 机器人，以 DeepSeek 为主对话模型，内置丛雨角色扮演人格，支持图片/视频识别、Markdown/公式渲染、表情包系统、向量长期记忆等多模态能力。
+基于 [NapCatQQ](https://github.com/NapNeko/NapCatQQ) + Python 的 QQ 机器人，以 DeepSeek 为主对话模型，内置猫娘角色扮演人格，支持图片/视频识别、Markdown/公式渲染、表情包系统、向量长期记忆等多模态能力。
 
 ## 功能一览
 
@@ -8,16 +8,13 @@
 |------|------|
 | 角色扮演 | 内置猫娘人格（主人/守护模式），傲娇恋人风格，支持表情包辅助情绪表达 |
 | 长期记忆 | 所有群消息向量化存入 ChromaDB，LLM 调用时自动检索相关历史作为上下文 |
-| 图片识别 | 消息含图片时自动调用 Gemini 2.0 Flash 识别并告知 AI |
+| 图片识别 | 消息含图片时自动调用 Qwen3-VL-Plus 识别并告知 AI |
 | 视频分析 | 调用 Gemini 2.0 Flash 分析视频内容 |
 | 语音转文字 | 调用 Groq Whisper 转录语音消息 |
 | Markdown 渲染 | AI 回复中的代码块、表格、数学公式自动渲染为图片发送 |
-| 数学公式 | KaTeX 渲染，支持 `$…$` 行内和 `$$…$$` 块级公式 |
-| Typst 渲染 | 将 Typst 代码渲染为图片 |
-| 游戏王查卡 | 查询游戏王卡片信息与图片 |
+| 数学公式 | LaTeX 渲染，支持 `$…$` 行内和 `$$…$$` 块级公式 |
 | P5 预告信 | 生成女神异闻录 5 风格预告信 |
-| AI 绘图 | 调用 Prodia API 生成图片（维修中） |
-| JMComic | 漫画下载并转 PDF（维修中） |
+| JMComic | 漫画下载并转 PDF |
 
 ## 部署
 
@@ -56,6 +53,7 @@ npm install markdown-it markdown-it-texmath katex puppeteer
   "api_keys": {
     "deepseek":   "sk-...",
     "openrouter": "sk-or-v1-...",
+    "qwen":       "sk-...",
     "gemini":     "AIza...",
     "groq":       "gsk_...",
     "openai":     "",
@@ -87,9 +85,9 @@ npm install markdown-it markdown-it-texmath katex puppeteer
 | 字段 | 用途 | 是否必填 |
 |------|------|----------|
 | `deepseek` | 主对话模型 | 必填 |
-| `gemini` | 图片/视频分析（google-genai） | 推荐填写 |
+| `qwen` | 图片识别（千问 DashScope） | 推荐填写 |
+| `gemini` | 视频分析（google-genai） | 可选 |
 | `groq` | 语音转文字（Whisper） | 可选 |
-| `prodia` | AI 绘图（维修中） | 可选 |
 | `super_users` | 主人 QQ 号列表，拥有管理指令权限 | 必填 |
 | `test_groups` | 允许 Bot 响应的群号列表 | 必填 |
 | `proxy_url` | HTTP 代理 | 按需填写 |
@@ -111,7 +109,6 @@ npm install markdown-it markdown-it-texmath katex puppeteer
 
 ```bat
 run.bat
-```（目前无此选项）
 
 脚本会自动：
 - 检测 NapCat 是否运行，未运行则自动以快速登录方式启动
@@ -150,12 +147,9 @@ python bot.py
 | `.reset` | 重启 Bot 进程（同时重启 NapCat 如未运行） | ★ |
 | `.stop` | 强制停止 Bot 与 NapCat | ★ |
 | `.clean` | 清空当前群的向量记忆数据库 | ★ |
-| `.draw <提示词>` | AI 绘图（Prodia） | 🔧 |
-| `.typ <代码>` | 渲染 Typst 代码为图片 | 所有人 |
 | `.md <文本>` | 渲染 Markdown 为图片 | 所有人 |
-| `.YGO <卡名>` | 游戏王查卡 | 所有人 |
 | `.P5 <内容>` | P5 风格预告信 | 所有人 |
-| `.jm <编号>` | 下载 JMComic 并转 PDF | 🔧 |
+| `.jm <编号>` | 下载 JMComic 并转 PDF | 所有人 |
 
 ## 项目结构
 
@@ -181,10 +175,12 @@ QQBot/
 │   │   └── murasame_card.py    # 丛雨角色卡（人格提示词）
 │   ├── plugins/
 │   │   ├── vision.py           # 图片识别
-│   │   ├── gemini.py           # 视频/图片分析（google-genai）
+│   │   ├── gemini.py           # 视频分析（google-genai），图片识别已迁至千问 Qwen3-VL-Plus
 │   │   ├── markdown.py         # Markdown 渲染调度
 │   │   ├── renderMarkdown.js   # Markdown 渲染（Node.js + Puppeteer + KaTeX）
 │   │   ├── stickers.py         # 表情包系统
+│   │   ├── jm2pdf.py           # JMComic 下载转 PDF
+│   │   ├── option.yml          # jmcomic 配置文件
 │   │   ├── typst_renderer.py   # Typst 渲染
 │   │   └── ...
 │   └── stickers/
@@ -203,6 +199,19 @@ QQBot/
 - 中国大陆建议配置代理访问 DeepSeek / Gemini
 - Puppeteer 首次运行会下载 Chromium
 - 表情包图片不包含在仓库中，需自行准备
+
+## 更新日志
+
+### 2026-05-09 — P0 稳定性 & 风控修复
+
+| 修复项 | 文件 | 说明 |
+|--------|------|------|
+| 崩溃 Bug | `bot.py` | 删除 `unexcepted_error_happened` 中对未定义 `context_managers` 的引用，防止异常处理二次崩溃 |
+| 内存泄漏 | `bot.py` | 所有 NapCat API 调用增加 10 秒超时机制，超时自动清理 `echo_dict` 条目并解除协程阻塞 |
+| 风控：随机延迟 | `agent_orchestrator.py` | 消息发送前插入 0.8~4.0 秒随机延迟，模拟人类思考间隔 |
+| 风控：长消息分批 | `agent_orchestrator.py` | 超过 200 字符的消息自动按换行拆片发送，片间间隔 1.0~3.0 秒 |
+
+> 完整审查报告见 `bot-question.md`
 
 ## License
 

@@ -2,10 +2,11 @@ import asyncio
 import os
 import shutil
 import subprocess
+import traceback
 from enum import Enum
 from typing import Optional
 
-from plugins import P5_card, YGO_find_card, drawing, markdown, typst_renderer
+from plugins import P5_card, YGO_find_card, drawing, jm2pdf, markdown, typst_renderer
 from tool_router import Tool, ToolRouter, ToolScope
 
 _RESTART_SCRIPT = os.path.join(
@@ -50,7 +51,7 @@ class CommandHandler:
 .md / .markdown    Markdown 渲染
 .YGO               查询游戏王卡片
 .P5                生成 P5 预告信
-.jm                下载 JM 并生成 PDF  🔧
+.jm <数字>         下载 JM 并生成 PDF
 ========================
 ★ 超级用户专属指令  🔧 维修中"""
         self._register_tools()
@@ -166,6 +167,7 @@ class CommandHandler:
             )
         except Exception as exc:
             print(f"[Command] Failed to handle {command_type}: {exc}")
+            traceback.print_exc()
             return False
 
     async def _send_group_text(self, ws, group_id: int, text: str):
@@ -333,45 +335,55 @@ class CommandHandler:
         )
 
     async def _handle_jm_group(self, ws, message_content: str, group_id: int, **kwargs):
-        await self._send_group_text(ws, group_id, ".jm 指令正在维修中，暂时无法使用")
-        return
-
         command_content = self.extract_command_content(message_content, CommandType.JM)
+
+        if not command_content or not command_content.strip():
+            await self._send_group_text(ws, group_id, "用法: .jm <数字编号>")
+            return
+
+        await self._send_group_text(ws, group_id, f"好好好，{command_content} 嘛，这就去给你搬过来~")
+
         jm_pdf = await jm2pdf.get_pdf(command_content)
         if jm_pdf == 0:
-            await self._send_group_text(ws, group_id, "抱歉，未找到相关本子信息。")
+            await self._send_group_text(ws, group_id, f"翻了个遍没找到 {command_content}，编号没搞错吧？还是被和谐了？")
             return
 
         try:
+            abs_path = os.path.abspath(jm_pdf)
             await self.bot_interfaces["upload_group_file"](
                 ws,
                 group_id,
-                jm_pdf,
+                abs_path,
                 f"{command_content}.pdf",
-                "jm",
+                "/",
             )
-            await self._send_group_text(ws, group_id, "发送完成")
+            await self._send_group_text(ws, group_id, "Get Da★Ze☆~ 少🦌一点哦，已发至群文件，好好欣赏哦")
         finally:
             self._cleanup_jm_tmp(jm_pdf, command_content)
 
     async def _handle_jm_private(self, ws, message_content: str, user_id: int, **kwargs):
-        await self._send_private_text(ws, user_id, ".jm 指令正在维修中，暂时无法使用")
-        return
-
         command_content = self.extract_command_content(message_content, CommandType.JM)
+
+        if not command_content or not command_content.strip():
+            await self._send_private_text(ws, user_id, "用法: .jm <数字编号>")
+            return
+
+        await self._send_private_text(ws, user_id, f"好好好，{command_content} 嘛，这就去给你搬过来~")
+
         jm_pdf = await jm2pdf.get_pdf(command_content)
         if jm_pdf == 0:
-            await self._send_private_text(ws, user_id, "抱歉，未找到相关本子信息。")
+            await self._send_private_text(ws, user_id, f"翻了个遍没找到 {command_content}，编号没搞错吧？还是被和谐了？")
             return
 
         try:
+            abs_path = os.path.abspath(jm_pdf)
             await self.bot_interfaces["upload_private_file"](
                 ws,
                 user_id,
-                jm_pdf,
+                abs_path,
                 f"{command_content}.pdf",
             )
-            await self._send_private_text(ws, user_id, "发送完成")
+            await self._send_private_text(ws, user_id, "Get Da★Ze☆~ 少🦌一点哦，好好欣赏哦")
         finally:
             self._cleanup_jm_tmp(jm_pdf, command_content)
 

@@ -1,7 +1,7 @@
 import asyncio
 import base64
 import os
-import time
+import uuid
 
 _PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 _BOT_DIR    = os.path.dirname(_PLUGIN_DIR)
@@ -12,7 +12,7 @@ _RENDERER   = os.path.join(_PLUGIN_DIR, 'renderMarkdown.js')
 async def markdown_to_image(md_text: str) -> str:
     """Render *md_text* to a PNG and return it as a base64 string."""
     os.makedirs(_TMP_DIR, exist_ok=True)
-    ts      = str(time.time())
+    ts      = uuid.uuid4().hex[:12]
     md_file = os.path.join(_TMP_DIR, ts + '.md')
     out_file = os.path.join(_TMP_DIR, ts + '.png')
 

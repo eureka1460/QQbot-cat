@@ -1,6 +1,7 @@
 from typing import Callable, Dict, Optional
 
 import roles
+from cachetools import TTLCache
 from models import Group, User
 
 
@@ -10,8 +11,10 @@ class SessionManager:
     def __init__(self, bot_qq: int, is_super_user: Callable[[int], bool], memory=None, window_size: int = 30):
         self.bot_qq = bot_qq
         self.is_super_user = is_super_user
+        # Use TTLCache to prevent unbounded memory growth from stale sessions.
+        # Sessions expire after 12 hours of inactivity (ttl=43200 seconds).
         self.private_sessions: Dict[int, User] = {}
-        self.group_sessions: Dict[int, Group] = {}
+        self.group_sessions: Dict[int, Group] = TTLCache(maxsize=1024, ttl=43200)
         self.memory = memory
         self.window_size = window_size
 

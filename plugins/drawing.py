@@ -13,13 +13,17 @@ from config import *
 from api import *
 from aiohttp import ClientTimeout
 
+_BOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_TMP_DIR = os.path.join(_BOT_DIR, "tmp")
+os.makedirs(_TMP_DIR, exist_ok=True)
+
 proxy_url = PROXY_URL
 
 async def save_image_and_convert_to_base64(raw_message):
     try:
         # 调用 generate 方法并设置 url_ = True
         image_url = await generate(raw_message, url_=True)
-        local_directory = 'D:/QQbot/Bot/tmp/'
+        local_directory = _TMP_DIR
         
         if image_url:
             # 下载图片并转换为 base64 编码
@@ -30,7 +34,7 @@ async def save_image_and_convert_to_base64(raw_message):
                         # 检查响应状态
                         response.raise_for_status()
                         
-                        file_name = os.path.join(local_directory, f"drawing{int(time.time())}.png")
+                        file_name = os.path.join(local_directory, f"drawing_{int(time.time() * 1000)}.png")
                         async with aiofiles.open(file_name, mode='wb') as f:
                             await f.write(await response.read())
                         
@@ -56,51 +60,22 @@ async def save_image_and_convert_to_base64(raw_message):
         print(f"An error occurred: {e}")
         return None
 
-async def build_StableDiffusion_info(data:str):
+async def build_StableDiffusion_info(data: str):
+    """Parse SD parameter string into a dict; falls back to treating the
+    entire input as a plain prompt when JSON decoding fails."""
     ret = {}
-    Plain = True
-    Backlash = False
-    Type = "prompt"
-    data_str = ""
-    default_str=""
-    for char in data:
-        if(char == "\"" and not Backlash and Plain):
-            Type="prompt"
-            if(data_str==""):
-                Plain = not Plain
-                continue
-            Backlash = False
-            default_str += data_str
-            Plain = not Plain
-            data_str = ""
-            continue
-        if(char == "\"" and not Backlash and not Plain):
-            Backlash = False
-            try:
-                ret.update({Type:float(data_str)})                
-            except ValueError:
-                ret.update({Type:data_str})
-            Plain = not Plain
-            data_str=""
-            continue
-        if(char == "\\" and not Backlash):
-            Backlash = True
-            continue
-        if(char == "\\" and Backlash):
-            data_str += "\\"
-            Backlash = False
-            continue
-        if(char=="\"" and Backlash):
-            data_str += "\""
-            Backlash = False
-            continue
-        if(char==":" and not Plain):
-            Type = data_str
-            data_str = ""
-            continue
-        data_str += char
-    default_str+=data_str
-    ret.update({"prompt":default_str})
+    try:
+        # Wrap in braces if missing to support raw key:value strings
+        if not data.strip().startswith('{'):
+            data = '{' + data + '}'
+        ret = json.loads(data)
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"[drawing] JSON parse failed ({e}), treating input as raw prompt")
+    # Ensure a 'prompt' key always exists
+    if "prompt" not in ret or not ret["prompt"]:
+        # Construct a fallback: use the original input stripped of any
+        # kv-pair noise.  The simplest safe fallback is the raw string.
+        ret["prompt"] = data.strip('{}').strip('"').strip() or ""
     return ret
 
 async def generate(raw_message, auth:str = PRODIA_API_KEY, url_=False, XL = False)->bytes:

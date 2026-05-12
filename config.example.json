@@ -9,7 +9,7 @@
   },
   "model_settings": {
     "deepseek_base_url": "https://api.deepseek.com",
-    "deepseek_model": "deepseek-v4-flash",
+    "deepseek_model": "deepseek-v4-pro",
     "deepseek_temperature": 0.75
   },
   "bot_settings": {

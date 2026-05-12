@@ -1,3 +1,4 @@
+import base64
 from google import genai
 from google.genai import types
 import PIL.Image as pi
@@ -10,61 +11,66 @@ import tempfile
 from config import *
 from aiohttp import ClientTimeout
 
-_client = genai.Client(api_key=GEMINI_API_KEY)
+_client = genai.Client(api_key="AIzaSyBppZhcGES4MI1JwgFpSZWsdSw4kxiOEmk")
 _MODEL = "gemini-2.0-flash"
-
-
-async def url_to_image(url):
-    try:
-        print(f"[Gemini]Fetching image from URL: {url}")
-        async with aiohttp.ClientSession(timeout=ClientTimeout(total=30)) as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    image = await response.read()
-                    print(f"[Gemini]Image fetched successfully, size: {len(image)} bytes")
-                    return image
-                else:
-                    print(f"[Gemini]HTTP Error: {response.status}")
-                    return None
-    except asyncio.TimeoutError:
-        print("[Gemini]Timeout while fetching image")
-        return None
-    except Exception as e:
-        print(f"[Gemini]Error fetching image: {e}")
-        return None
 
 
 async def image_to_text(image):
     if image is None:
         return "Error: Unable to fetch image"
 
+    if not QWEN_API_KEY:
+        return "[未配置千问 API Key，无法识别图片]"
+
     try:
-        print("[Gemini]Generating text from image...")
-        # Convert to JPEG bytes via PIL for a consistent format
+        print("[Qwen]Generating text from image...")
+        # Convert to JPEG bytes via PIL
         img = pi.open(io.BytesIO(image))
         buf = io.BytesIO()
         img.convert("RGB").save(buf, format="JPEG")
         jpeg_bytes = buf.getvalue()
 
-        response = await asyncio.wait_for(
-            _client.aio.models.generate_content(
-                model=_MODEL,
-                contents=[
-                    "请用中文描述这张图片的内容，包括图片中的文字、物品、人物、场景等。",
-                    types.Part.from_bytes(data=jpeg_bytes, mime_type="image/jpeg"),
-                ],
-            ),
-            timeout=30.0,
-        )
+        # Encode to base64 data URL
+        b64_image = base64.b64encode(jpeg_bytes).decode("utf-8")
+        data_url = f"data:image/jpeg;base64,{b64_image}"
 
-        print(f"[Gemini]Generated text: {response.text[:100]}...")
-        return response.text
+        payload = {
+            "model": "qwen3-vl-plus",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": data_url}},
+                        {"type": "text", "text": "请用中文描述这张图片的内容。要求：1) 先概括图片整体主题 2) 详细列举画面中出现的所有物品、人物、文字 3) 描述场景、环境、氛围 4) 如果有文字请逐字识别并给出翻译（如果是外语）5) 最后给出2-3个可用于搜索这张图片的关键标签。"},
+                    ],
+                }
+            ],
+        }
+
+        async with aiohttp.ClientSession(timeout=ClientTimeout(total=60)) as session:
+            async with session.post(
+                "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {QWEN_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+            ) as response:
+                result = await response.json()
+                if response.status == 200:
+                    text = result["choices"][0]["message"]["content"]
+                    print(f"[Qwen]Generated text: {text[:100]}...")
+                    return text
+                else:
+                    error_msg = result.get("error", {}).get("message", str(result))
+                    print(f"[Qwen]API Error ({response.status}): {error_msg}")
+                    return f"抱歉，图片识别失败：{error_msg}"
 
     except asyncio.TimeoutError:
-        print("[Gemini]Timeout while generating text from image")
+        print("[Qwen]Timeout while generating text from image")
         return "抱歉，图片处理超时，请稍后再试。"
     except Exception as e:
-        print(f"[Gemini]Error processing image: {e}")
+        print(f"[Qwen]Error processing image: {e}")
         return f"抱歉，图片处理出现错误：{str(e)}"
 
 

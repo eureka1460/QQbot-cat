@@ -9,7 +9,7 @@ client:
   #  html - 表示网页端
   #  api - 表示APP端
   # APP端不限ip兼容性好，网页端限制ip地区但效率高
-  impl: html
+  impl: api
 
   # domain: 域名配置，默认是 []，表示运行时自动获取域名。
   # 可配置特定域名，如下：

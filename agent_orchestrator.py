@@ -1,3 +1,5 @@
+import asyncio
+import random
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -103,7 +105,7 @@ class AgentOrchestrator:
             store_user=False,
         )
         segments = await self._build_message_segments(response)
-        await self.bot_interfaces["send_group_message"](ws, group_id, segments)
+        await self._send_with_human_delay(ws, group_id, segments, is_group=True)
         return AgentRunResult(True, decision.action, decision.reason)
 
     async def handle_private_message(self, ws, payload: Dict[str, Any]) -> AgentRunResult:
@@ -137,7 +139,7 @@ class AgentOrchestrator:
             persona_prompt.system_role,
         )
         segments = await self._build_message_segments(response)
-        await self.bot_interfaces["send_private_message"](ws, user_id, segments)
+        await self._send_with_human_delay(ws, user_id, segments, is_group=False)
         return AgentRunResult(True, decision.action, decision.reason)
 
     async def _build_message_segments(self, response: str) -> List[dict]:
@@ -170,8 +172,11 @@ class AgentOrchestrator:
                     img_b64 = await markdown_to_image(md_content)
                     result.append({"type": "image", "data": {"file": f"base64://{img_b64}"}})
                 except Exception as exc:
-                    print(f"[Agent] markdown render failed, sending raw text: {exc}")
-                    result.extend(await self.bot_interfaces["decode_CQ_to_message"](md_content))
+                    print(f"[Agent] markdown render failed, raw md content: {md_content[:200]}")
+                    print(f"[Agent] markdown render exception: {exc}")
+                    import traceback
+                    traceback.print_exc()
+                    result.extend(await self.bot_interfaces["decode_CQ_to_message"]("[Markdown 渲染失败，请稍后重试]"))
             elif part.startswith('<sticker:'):
                 name = _STICKER_RE.match(part).group(1)
                 seg = sticker_to_segment(name)
@@ -233,3 +238,101 @@ class AgentOrchestrator:
                 if reply_id is not None:
                     return str(reply_id)
         return None
+
+    # ------------------------------------------------------------------
+    # Human-like sending helpers (anti-fraud / rate-limiting)
+    # ------------------------------------------------------------------
+    _CHUNK_MAX_LEN = 200  # characters; split if a chunk exceeds this
+
+    async def _send_with_human_delay(
+        self, ws, target_id: int, segments: list, is_group: bool
+    ) -> None:
+        """Send segments with a randomized pre-send delay.
+
+        If the plain-text content exceeds _CHUNK_MAX_LEN characters the
+        message is split on sentence boundaries (newlines, periods, etc.)
+        and sent in chunks, each with its own inter-chunk delay.
+        """
+        # 1. Pre-send human-thinking delay (0.8 – 4.0 s)
+        await asyncio.sleep(random.uniform(0.8, 4.0))
+
+        # 2. Determine plain-text length for the chunking decision
+        full_text = self._segments_to_plain_text(segments)
+        if len(full_text) <= self._CHUNK_MAX_LEN:
+            # short message → send as-is
+            if is_group:
+                await self.bot_interfaces["send_group_message"](ws, target_id, segments)
+            else:
+                await self.bot_interfaces["send_private_message"](ws, target_id, segments)
+            return
+
+        # 3. Split into chunks and send one by one
+        chunks = self._split_long_text(full_text)
+        for chunk in chunks:
+            chunk_segments = await self.bot_interfaces["decode_CQ_to_message"](chunk)
+            if is_group:
+                await self.bot_interfaces["send_group_message"](ws, target_id, chunk_segments)
+            else:
+                await self.bot_interfaces["send_private_message"](ws, target_id, chunk_segments)
+            if chunk is not chunks[-1]:
+                # inter-chunk delay (1.0 – 3.0 s)
+                await asyncio.sleep(random.uniform(1.0, 3.0))
+
+    @staticmethod
+    def _segments_to_plain_text(segments: list) -> str:
+        """Extract plain-text content from OneBot segments."""
+        text = ""
+        for seg in segments:
+            if seg.get("type") == "text":
+                text += seg.get("data", {}).get("text", "")
+        return text
+
+    @staticmethod
+    def _split_long_text(text: str) -> List[str]:
+        """Split *text* on sentence boundaries so each chunk ≤ _CHUNK_MAX_LEN.
+
+        Boundaries tried in order:
+          newline (\\n)  →  punctuation: (. ) / (。) / (！) / (？)
+        If a single sentence still exceeds the limit it is cut at the
+        limit boundary (hard split).
+        """
+        # Try splitting on newlines first
+        lines = text.split("\n")
+        # If at least one line already exceeds the limit, fallback to
+        # punctuation-based splitting so we don't cut mid-sentence.
+        if any(len(line) > AgentOrchestrator._CHUNK_MAX_LEN for line in lines):
+            import re
+            # Split on period+space, Chinese period, exclamation, question mark
+            parts = re.split(r'(?<=\. )|(?<=。)|(?<=！)|(?<=？)', text)
+            # Filter out empty strings
+            parts = [p for p in parts if p]
+            return AgentOrchestrator._merge_chunks(
+                parts, AgentOrchestrator._CHUNK_MAX_LEN
+            )
+        return AgentOrchestrator._merge_chunks(
+            lines, AgentOrchestrator._CHUNK_MAX_LEN
+        )
+
+    @staticmethod
+    def _merge_chunks(parts: List[str], max_len: int) -> List[str]:
+        """Merge *parts* greedily so that each result item ≤ max_len."""
+        result = []
+        buf = ""
+        for part in parts:
+            if not part.strip():
+                # empty lines – append them to the current buffer so they
+                # don't get lost
+                if buf:
+                    buf += "\n"
+                continue
+            if not buf:
+                buf = part
+                continue
+            if len(buf) + 1 + len(part) <= max_len:
+                buf += "\n" + part
+            else:
+                result.append(buf)
+                buf = part
+        if buf:
+            result.append(buf)
+        return result
